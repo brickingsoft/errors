@@ -24,6 +24,8 @@ func (meta Meta) Swap(i, j int) {
 	meta[i], meta[j] = meta[j], meta[i]
 }
 
+// WithMeta
+// 设置元数据。
 func WithMeta(key string, val any) Option {
 	return func(o *Options) {
 		if key == "" {

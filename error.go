@@ -9,6 +9,8 @@ import (
 	"unsafe"
 )
 
+// Define
+// 定义一个标准错误
 func Define(message string) error {
 	return errors.New(message)
 }
@@ -17,37 +19,45 @@ type Options struct {
 	Description string
 	Occur       time.Time
 	Meta        Meta
-	Wrapped     *EnhancedError
+	Wrap        *EnhancedError
 	Depth       int
 }
 
 type Option func(*Options)
 
+// WithDescription
+// 设置描述
 func WithDescription(desc string) Option {
 	return func(o *Options) {
 		o.Description = desc
 	}
 }
 
+// WithOccur
+// 设置发生时间为当前
 func WithOccur() Option {
 	return func(o *Options) {
 		o.Occur = time.Now()
 	}
 }
 
+// WithOccurAt
+// 设置发生时间
 func WithOccurAt(t time.Time) Option {
 	return func(o *Options) {
 		o.Occur = t
 	}
 }
 
-func WithWrapped(err error) Option {
+// WithWrap
+// 添加包裹
+func WithWrap(err error) Option {
 	return func(o *Options) {
 		if err != nil {
 			if ee, ok := err.(*EnhancedError); ok {
-				o.Wrapped = ee
+				o.Wrap = ee
 			} else {
-				o.Wrapped = &EnhancedError{
+				o.Wrap = &EnhancedError{
 					Message: err.Error(),
 				}
 			}
@@ -55,26 +65,73 @@ func WithWrapped(err error) Option {
 	}
 }
 
+// WithDepth
+// 设置跟踪深度
 func WithDepth(n int) Option {
 	return func(o *Options) {
 		o.Depth = n
 	}
 }
 
-func New(message string, opt ...Option) error {
+// From
+// 从一个错误中创建一个增强错误。
+func From(err error, opt ...Option) error {
+	if err == nil {
+		return nil
+	}
+	// options
 	opts := Options{
 		Description: "",
-		Occur:       time.Now(),
+		Occur:       time.Time{},
 		Meta:        nil,
-		Wrapped:     nil,
-		Depth:       1,
+		Wrap:        nil,
+		Depth:       2,
 	}
 	for _, o := range opt {
 		o(&opts)
 	}
+	// stack
+	st := stack(opts.Depth)
+	// enhanced
+	return &EnhancedError{
+		Message:     err.Error(),
+		Description: opts.Description,
+		Meta:        opts.Meta,
+		Stacktrace:  st,
+		Occur:       opts.Occur,
+		Wrapped:     opts.Wrap,
+	}
+}
 
-	st := Stacktrace{}
-	pc, file, line, ok := runtime.Caller(opts.Depth)
+// New
+// 创建一个增强错误。
+func New(message string, opt ...Option) error {
+	// options
+	opts := Options{
+		Description: "",
+		Occur:       time.Time{},
+		Meta:        nil,
+		Wrap:        nil,
+		Depth:       2,
+	}
+	for _, o := range opt {
+		o(&opts)
+	}
+	// stack
+	st := stack(opts.Depth)
+	// enhanced
+	return &EnhancedError{
+		Message:     message,
+		Description: opts.Description,
+		Meta:        opts.Meta,
+		Stacktrace:  st,
+		Occur:       opts.Occur,
+		Wrapped:     opts.Wrap,
+	}
+}
+
+func stack(depth int) Stacktrace {
+	pc, file, line, ok := runtime.Caller(depth)
 	if ok {
 		if strings.IndexByte(file, '/') == 0 || strings.IndexByte(file, ':') == 1 {
 			idx := strings.Index(file, "/src/")
@@ -87,21 +144,14 @@ func New(message string, opt ...Option) error {
 				}
 			}
 		}
-		fn := runtime.FuncForPC(pc)
-
-		st.Fn = fn.Name()
-		st.File = file
-		st.Line = line
+		fn := runtime.FuncForPC(pc).Name()
+		return Stacktrace{
+			Fn:   fn,
+			File: file,
+			Line: line,
+		}
 	}
-
-	return &EnhancedError{
-		Message:     message,
-		Description: opts.Description,
-		Meta:        opts.Meta,
-		Stacktrace:  st,
-		Occur:       opts.Occur,
-		Wrapped:     opts.Wrapped,
-	}
+	return Stacktrace{}
 }
 
 type Stacktrace struct {
@@ -119,24 +169,33 @@ type EnhancedError struct {
 	Wrapped     *EnhancedError
 }
 
+func (e *EnhancedError) Stack() (string, string, int) {
+	return e.Stacktrace.Fn, e.Stacktrace.File, e.Stacktrace.Line
+}
+
 func (e *EnhancedError) Error() string {
 	return e.Message
 }
 
 func (e *EnhancedError) Unwrap() error {
-	return e.Wrapped
+	if e.Wrapped != nil {
+		return e.Wrapped
+	}
+	return nil
 }
 
 func (e *EnhancedError) Is(err error) bool {
+	if e == nil {
+		return false
+	}
 	if err == nil {
 		return false
 	}
 	if ee, ok := err.(*EnhancedError); ok {
-		if e.Message == ee.Message {
-			return true
-		}
+		return e.Message == ee.Message
+	} else {
+		return e.Message == err.Error()
 	}
-	return true
 }
 
 func (e *EnhancedError) String() string {
@@ -150,7 +209,7 @@ func (e *EnhancedError) write(state fmt.State) {
 WRITE:
 	_, _ = buf.WriteString(">>>>>>>>>>>>>\n")
 	_, _ = buf.WriteString(fmt.Sprintf("ERRO      = %s\n", err.Message))
-	if e.Description != "" {
+	if err.Description != "" {
 		_, _ = buf.WriteString(fmt.Sprintf("DESC      = %s\n", err.Description))
 	}
 	if err.Meta.Len() > 0 {
