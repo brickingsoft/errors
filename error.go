@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -13,12 +14,32 @@ func Define(message string) error {
 }
 
 type Options struct {
-	Meta    Meta
-	Wrapped *EnhancedError
-	Depth   int
+	Description string
+	Occur       time.Time
+	Meta        Meta
+	Wrapped     *EnhancedError
+	Depth       int
 }
 
 type Option func(*Options)
+
+func WithDescription(desc string) Option {
+	return func(o *Options) {
+		o.Description = desc
+	}
+}
+
+func WithOccur() Option {
+	return func(o *Options) {
+		o.Occur = time.Now()
+	}
+}
+
+func WithOccurAt(t time.Time) Option {
+	return func(o *Options) {
+		o.Occur = t
+	}
+}
 
 func WithWrapped(err error) Option {
 	return func(o *Options) {
@@ -42,9 +63,11 @@ func WithDepth(n int) Option {
 
 func New(message string, opt ...Option) error {
 	opts := Options{
-		Meta:    nil,
-		Wrapped: nil,
-		Depth:   1,
+		Description: "",
+		Occur:       time.Now(),
+		Meta:        nil,
+		Wrapped:     nil,
+		Depth:       1,
 	}
 	for _, o := range opt {
 		o(&opts)
@@ -72,10 +95,12 @@ func New(message string, opt ...Option) error {
 	}
 
 	return &EnhancedError{
-		Message:    message,
-		Meta:       opts.Meta,
-		Stacktrace: st,
-		Wrapped:    opts.Wrapped,
+		Message:     message,
+		Description: opts.Description,
+		Meta:        opts.Meta,
+		Stacktrace:  st,
+		Occur:       opts.Occur,
+		Wrapped:     opts.Wrapped,
 	}
 }
 
@@ -86,10 +111,12 @@ type Stacktrace struct {
 }
 
 type EnhancedError struct {
-	Message    string
-	Stacktrace Stacktrace
-	Meta       Meta
-	Wrapped    *EnhancedError
+	Message     string
+	Description string
+	Stacktrace  Stacktrace
+	Occur       time.Time
+	Meta        Meta
+	Wrapped     *EnhancedError
 }
 
 func (e *EnhancedError) Error() string {
@@ -123,6 +150,9 @@ func (e *EnhancedError) write(state fmt.State) {
 WRITE:
 	_, _ = buf.WriteString(">>>>>>>>>>>>>\n")
 	_, _ = buf.WriteString(fmt.Sprintf("ERRO      = %s\n", err.Message))
+	if e.Description != "" {
+		_, _ = buf.WriteString(fmt.Sprintf("DESC      = %s\n", err.Description))
+	}
 	if err.Meta.Len() > 0 {
 		_, _ = buf.WriteString("META      =")
 		for j := range err.Meta {
@@ -131,6 +161,9 @@ WRITE:
 			}
 		}
 		_, _ = buf.WriteString("\n")
+	}
+	if !err.Occur.IsZero() {
+		_, _ = buf.WriteString(fmt.Sprintf("OCCU      = %s\n", err.Occur.Format(time.RFC3339)))
 	}
 	if fn, file, line := err.Stacktrace.Fn, err.Stacktrace.File, err.Stacktrace.Line; file != "" {
 		_, _ = buf.WriteString(fmt.Sprintf("FUNC      = %s\n", fn))
