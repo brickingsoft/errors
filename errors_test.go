@@ -20,6 +20,8 @@ func TestJoin_Std(t *testing.T) {
 
 	e := errors.Join(e1, e2)
 	t.Log(e)
+	e = errors.Join(e1, e1)
+	t.Log(e)
 }
 
 func TestIs(t *testing.T) {

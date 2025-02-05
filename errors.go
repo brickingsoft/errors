@@ -17,7 +17,7 @@ func Join(errs ...error) error {
 		}
 		ee, ok := err.(*EnhancedError)
 		if !ok {
-			err = New(err.Error(), WithDepth(2))
+			err = New(err.Error(), WithDepth(3))
 			ee = err.(*EnhancedError)
 		}
 		if prev == nil {
