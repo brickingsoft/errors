@@ -16,11 +16,12 @@ func Define(message string) error {
 }
 
 type Options struct {
-	Description string
-	Occur       time.Time
-	Meta        Meta
-	Wrap        *EnhancedError
-	Depth       int
+	Description       string
+	Occur             time.Time
+	Meta              Meta
+	Wrap              *EnhancedError
+	Depth             int
+	DisableStacktrace bool
 }
 
 type Option func(*Options)
@@ -73,6 +74,14 @@ func WithDepth(n int) Option {
 	}
 }
 
+// WithoutStacktrace
+// 取消跟踪
+func WithoutStacktrace() Option {
+	return func(o *Options) {
+		o.DisableStacktrace = true
+	}
+}
+
 // From
 // 从一个错误中创建一个增强错误。
 func From(err error, opt ...Option) error {
@@ -81,11 +90,12 @@ func From(err error, opt ...Option) error {
 	}
 	// options
 	opts := Options{
-		Description: "",
-		Occur:       time.Time{},
-		Meta:        nil,
-		Wrap:        nil,
-		Depth:       2,
+		Description:       "",
+		Occur:             time.Time{},
+		Meta:              nil,
+		Wrap:              nil,
+		Depth:             2,
+		DisableStacktrace: false,
 	}
 	for _, o := range opt {
 		o(&opts)
@@ -108,26 +118,29 @@ func From(err error, opt ...Option) error {
 func New(message string, opt ...Option) error {
 	// options
 	opts := Options{
-		Description: "",
-		Occur:       time.Time{},
-		Meta:        nil,
-		Wrap:        nil,
-		Depth:       2,
+		Description:       "",
+		Occur:             time.Time{},
+		Meta:              nil,
+		Wrap:              nil,
+		Depth:             2,
+		DisableStacktrace: false,
 	}
 	for _, o := range opt {
 		o(&opts)
 	}
 	// stack
-	st := stack(opts.Depth)
-	// enhanced
-	return &EnhancedError{
+	ee := &EnhancedError{
 		Message:     message,
 		Description: opts.Description,
 		Meta:        opts.Meta,
-		Stacktrace:  st,
 		Occur:       opts.Occur,
 		Wrapped:     opts.Wrap,
 	}
+	if opts.DisableStacktrace {
+		return ee
+	}
+	ee.Stacktrace = stack(opts.Depth)
+	return ee
 }
 
 func stack(depth int) Stacktrace {

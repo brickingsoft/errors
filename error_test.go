@@ -72,3 +72,8 @@ func TestJson(t *testing.T) {
 	t.Log(buf.String())
 
 }
+
+func TestWithoutStacktrace(t *testing.T) {
+	e := errors.New("e", errors.WithoutStacktrace())
+	t.Log(e)
+}
