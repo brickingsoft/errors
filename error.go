@@ -204,7 +204,7 @@ func (e *EnhancedError) String() string {
 
 func (e *EnhancedError) write(state fmt.State) {
 	buf := acquireByteBuffer()
-	_, _ = buf.WriteString("EnhancedError:\n")
+	_, _ = buf.WriteString("[ENHANCED ERROR]\n")
 	var err = e
 WRITE:
 	_, _ = buf.WriteString(">>>>>>>>>>>>>\n")
