@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -10,9 +9,10 @@ import (
 )
 
 // Define
-// 定义一个标准错误
-func Define(message string) error {
-	return errors.New(message)
+// 定义一个错误，不包含栈和时间。
+func Define(message string, opt ...Option) error {
+	opt = append(opt, WithoutStacktrace(), WithoutOccur())
+	return New(message, opt...)
 }
 
 type Options struct {
@@ -47,6 +47,14 @@ func WithOccur() Option {
 func WithOccurAt(t time.Time) Option {
 	return func(o *Options) {
 		o.Occur = t
+	}
+}
+
+// WithoutOccur
+// 移除发生时间
+func WithoutOccur() Option {
+	return func(o *Options) {
+		o.Occur = time.Time{}
 	}
 }
 
@@ -100,17 +108,30 @@ func From(err error, opt ...Option) error {
 	for _, o := range opt {
 		o(&opts)
 	}
-	// stack
-	st := stack(opts.Depth)
-	// enhanced
-	return &EnhancedError{
-		Message:     err.Error(),
-		Description: opts.Description,
-		Meta:        opts.Meta,
-		Stacktrace:  st,
-		Occur:       opts.Occur,
-		Wrapped:     opts.Wrap,
+	ee, ok := err.(*EnhancedError)
+	if !ok {
+		ee = &EnhancedError{
+			Message: err.Error(),
+		}
 	}
+	if opts.Description != "" {
+		ee.Description = opts.Description
+	}
+	if len(opts.Meta) > 0 {
+		ee.Meta = append(ee.Meta, opts.Meta...)
+	}
+	if !opts.DisableStacktrace {
+		// stack
+		st := stack(opts.Depth)
+		ee.Stacktrace = st
+	}
+	if !opts.Occur.IsZero() {
+		ee.Occur = opts.Occur
+	}
+	if opts.Wrap != nil {
+		ee.Wrap(opts.Wrap)
+	}
+	return ee
 }
 
 // New
@@ -195,6 +216,20 @@ func (e *EnhancedError) Unwrap() error {
 		return e.Wrapped
 	}
 	return nil
+}
+
+func (e *EnhancedError) Wrap(err error) {
+	if e.Wrapped == nil {
+		if ee, ok := err.(*EnhancedError); ok {
+			e.Wrapped = ee
+		} else {
+			e.Wrapped = &EnhancedError{
+				Message: err.Error(),
+			}
+		}
+		return
+	}
+	e.Wrapped.Wrap(err)
 }
 
 func (e *EnhancedError) Is(err error) bool {
