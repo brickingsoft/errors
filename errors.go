@@ -24,7 +24,7 @@ func Join(errs ...error) error {
 			prev = ee
 			continue
 		}
-		ee.Wrapped = prev
+		ee.Wrap(prev)
 		prev = ee
 	}
 	return prev
@@ -34,13 +34,16 @@ func Join(errs ...error) error {
 // 判断 err 是否为或包含 target。
 // err 可以是一组错误，target 建议是一个错误，即便 target 是一组，也是取顶层进行判断。
 func Is(err error, target error) bool {
+	if errors.Is(err, target) {
+		return true
+	}
 	if err == nil || target == nil {
-		return errors.Is(err, target)
+		return false
 	}
 	if eq := err.Error() == target.Error(); eq {
 		return true
 	}
-	return errors.Is(err, target)
+	return false
 }
 
 // As
