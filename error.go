@@ -109,7 +109,11 @@ func From(err error, opt ...Option) error {
 		o(&opts)
 	}
 	ee, ok := err.(*EnhancedError)
-	if !ok {
+	if ok {
+		copied := &EnhancedError{}
+		Copy(copied, ee)
+		ee = copied
+	} else {
 		ee = &EnhancedError{
 			Message: err.Error(),
 		}
@@ -233,17 +237,10 @@ func (e *EnhancedError) Wrap(err error) {
 }
 
 func (e *EnhancedError) Is(err error) bool {
-	if e == nil {
-		return false
-	}
 	if err == nil {
-		return false
+		return e == err
 	}
-	if ee, ok := err.(*EnhancedError); ok {
-		return e.Message == ee.Message
-	} else {
-		return e.Message == err.Error()
-	}
+	return e.Message == err.Error()
 }
 
 func (e *EnhancedError) String() string {
@@ -301,4 +298,25 @@ func (e *EnhancedError) Format(state fmt.State, verb rune) {
 		_, _ = fmt.Fprint(state, e.Message)
 		break
 	}
+}
+
+// Copy
+// 复制
+func Copy(dst *EnhancedError, src *EnhancedError) bool {
+	if dst == nil || src == nil {
+		return false
+	}
+	dst.Message = src.Message
+	dst.Description = src.Description
+	dst.Stacktrace = src.Stacktrace
+	dst.Occur = src.Occur
+	if metaLen := len(dst.Meta); metaLen > 0 {
+		dst.Meta = make(Meta, metaLen)
+		copy(dst.Meta, src.Meta)
+	}
+	if wrapped := src.Wrapped; wrapped != nil {
+		dst.Wrapped = &EnhancedError{}
+		Copy(dst.Wrapped, wrapped)
+	}
+	return true
 }
