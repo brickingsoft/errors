@@ -77,3 +77,9 @@ func TestWithoutStacktrace(t *testing.T) {
 	e := errors.New("e", errors.WithoutStacktrace())
 	t.Log(e)
 }
+
+func TestFrom(t *testing.T) {
+	define := errors.Define("err1", errors.WithMeta("meta", "value"), errors.WithWrap(errors.Define("err2")))
+	err := errors.From(define, errors.WithWrap(errors.New("err3")))
+	t.Log(err)
+}

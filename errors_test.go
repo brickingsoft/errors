@@ -8,9 +8,9 @@ import (
 
 func TestJoin(t *testing.T) {
 	e1 := errors.New("err1")
-	e2 := errors.New("err2")
-	e3 := errors.New("err3")
-	e := errors.Join(nil, e1, nil, e2, e3)
+	e2 := errors.New("err2", errors.WithWrap(errors.New("err3")))
+	e4 := errors.New("err4")
+	e := errors.Join(nil, e1, nil, e2, e4)
 	t.Log(e)
 }
 
@@ -50,6 +50,12 @@ func TestIs(t *testing.T) {
 	t.Log(errors.Is(
 		fmt.Errorf("err"),
 		errors.New("err1"),
+	))
+
+	err := errors.New("err")
+	t.Log(errors.Is(
+		err,
+		errors.From(err),
 	))
 }
 
