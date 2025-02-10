@@ -3,6 +3,7 @@ package errors_test
 import (
 	"fmt"
 	"github.com/brickingsoft/errors"
+	"io"
 	"testing"
 )
 
@@ -56,6 +57,16 @@ func TestIs(t *testing.T) {
 	t.Log(errors.Is(
 		err,
 		errors.From(err),
+	))
+
+	t.Log(errors.Is(
+		errors.From(io.EOF),
+		io.EOF,
+	))
+
+	t.Log(errors.Is(
+		errors.New("EOF"),
+		io.EOF,
 	))
 }
 
